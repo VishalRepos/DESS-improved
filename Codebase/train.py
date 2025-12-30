@@ -29,7 +29,7 @@ warnings.filterwarnings("ignore")
 class D2E2S_Trainer(BaseTrainer):
     def __init__(self, args: argparse.Namespace):
         super().__init__(args)
-        self._tokenizer = AutoTokenizer.from_pretrained("microsoft/deberta-v2-xxlarge")
+        self._tokenizer = AutoTokenizer.from_pretrained(args.pretrained_deberta_name)
         self._predictions_path = os.path.join(
             self._log_path_predict, "predicted_%s_epoch_%s.json"
         )
