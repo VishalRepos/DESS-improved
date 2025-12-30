@@ -4,7 +4,14 @@ This document tracks all improvements and changes made to the DESS (D2E2S) model
 
 ---
 
-## [ef6fbec] - 2025-12-30
+## [e2cb33d] - 2025-12-30 21:12:16 +0530
+### docs: Add CHANGELOG.md to track all improvements and changes
+
+**Changes**: Created changelog document to track all code improvements with commit IDs and timestamps
+
+---
+
+## [ef6fbec] - 2025-12-30 21:09:42 +0530
 ### Enhancement: Add improved dropout and layer normalization to DeBERTa transformer
 
 **Motivation**: Improve model generalization and training stability on Kaggle P100 GPU
@@ -40,7 +47,7 @@ python train.py --dataset 14res --epochs 120 \
 
 ---
 
-## [9a909f0] - 2025-12-30
+## [9a909f0] - 2025-12-30 20:18:43 +0530
 ### Fix: Remove all hardcoded deberta-v2-xxlarge references
 
 **Motivation**: Enable flexible model selection to avoid OOM errors on P100 GPU
@@ -56,7 +63,7 @@ python train.py --dataset 14res --epochs 120 \
 
 ---
 
-## [84c8104] - 2025-12-30
+## [84c8104] - 2025-12-30 20:14:29 +0530
 ### Fix: Use configurable tokenizer instead of hardcoded deberta-v2-xxlarge
 
 **Motivation**: Tokenizer must match the model being used
@@ -69,14 +76,14 @@ python train.py --dataset 14res --epochs 120 \
 
 ---
 
-## [4b5ea0e] - 2025-12-30
+## [4b5ea0e] - 2025-04-30 13:05:31 +0530
 ### Architecture.drawio
 
 **Changes**: Added architecture diagram
 
 ---
 
-## [6eb6529] - 2025-12-30
+## [6eb6529] - 2025-04-30 (Initial)
 ### Initial commit - Deberta V2 xxlarge
 
 **Changes**: Initial codebase with DeBERTa-v2-xxlarge model
@@ -100,13 +107,15 @@ When making changes:
 2. Test locally or on Kaggle
 3. Commit with descriptive message
 4. Add entry to this changelog with:
-   - Commit hash
-   - Date
+   - Commit hash (short: 7 chars)
+   - Date and time with timezone
    - Description of changes
    - Motivation
    - Expected impact
    - Testing commands (if applicable)
 
+**Format**: `## [commit_hash] - YYYY-MM-DD HH:MM:SS +TIMEZONE`
+
 ---
 
-**Last Updated**: 2025-12-30
+**Last Updated**: 2025-12-30 21:12:16 +0530
