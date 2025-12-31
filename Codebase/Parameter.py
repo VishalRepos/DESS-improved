@@ -36,6 +36,12 @@ def train_argparser():
     parser.add_argument(
         "--drop_out_rate", type=float, default=0.5, help="drop out rate."
     )
+    parser.add_argument(
+        "--use_enhanced_semgcn",
+        action="store_true",
+        default=False,
+        help="Use enhanced Semantic GCN with relative position, global context, and multi-scale features"
+    )
     parser.add_argument("--is_bidirect", default=True, help="Do use bi-RNN layer.")
     parser.add_argument(
         "--use_gated", default=False, help="Do use gcnconv and gatedgraphconv."

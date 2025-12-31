@@ -4,7 +4,7 @@ from trainer import util, sampling
 import os
 import math
 from models.Syn_GCN import GCN
-from models.Sem_GCN import SemGCN
+from models.Sem_GCN import SemGCN, EnhancedSemGCN
 from models.Attention_Module import SelfAttention
 from models.TIN_GCN import TIN, FeatureStacking
 import torch.nn.functional as F
@@ -69,7 +69,15 @@ class D2E2SModel(PreTrainedModel):
 
         # self.BertAdapterModel = BertAdapterModel(config)
         self.Syn_gcn = GCN(self._emb_dim)
-        self.Sem_gcn = SemGCN(self.args, self._emb_dim)
+        
+        # Use enhanced or original Semantic GCN based on parameter
+        if self.args.use_enhanced_semgcn:
+            self.Sem_gcn = EnhancedSemGCN(self.args, self._emb_dim)
+            print("Using Enhanced Semantic GCN with relative position, global context, and multi-scale features")
+        else:
+            self.Sem_gcn = SemGCN(self.args, self._emb_dim)
+            print("Using Original Semantic GCN")
+        
         self.senti_classifier = nn.Linear(
             config.hidden_size * 3 + self._size_embedding * 2, sentiment_types
         )
