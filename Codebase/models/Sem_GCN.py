@@ -53,25 +53,18 @@ class EnhancedSemGCN(nn.Module):
         
         # Enhanced attention with relative position
         attn_tensor = self.attn(gcn_inputs, gcn_inputs, src_mask)
-        
-        # Debug logging
-        print(f"[DEBUG EnhancedSemGCN] attn_tensor shape: {attn_tensor.shape}")
+        # attn_tensor shape: [batch, heads, seq_len, seq_len]
         
         # Average across attention heads
         adj_ag_new = attn_tensor.mean(dim=1)  # [batch, seq_len, seq_len]
-        print(f"[DEBUG EnhancedSemGCN] adj_ag_new after mean shape: {adj_ag_new.shape}")
-        print(f"[DEBUG EnhancedSemGCN] adj_ag_new.size(0): {adj_ag_new.size(0)}")
 
         # Add self-loops
         for j in range(adj_ag_new.size(0)):
-            print(f"[DEBUG EnhancedSemGCN] Processing batch {j}, adj_ag_new[{j}] shape: {adj_ag_new[j].shape}")
             adj_ag_new[j] -= torch.diag(torch.diag(adj_ag_new[j]))
             adj_ag_new[j] += torch.eye(adj_ag_new[j].size(0)).to(adj_ag_new.device)
         
-        print(f"[DEBUG EnhancedSemGCN] mask_ shape: {mask_.shape}")
         # Apply mask: [batch, seq_len] -> [batch, seq_len, 1]
         adj_ag_new = mask_.unsqueeze(-1) * adj_ag_new
-        print(f"[DEBUG EnhancedSemGCN] adj_ag_new after mask shape: {adj_ag_new.shape}")
 
         # GCN layers with multi-scale features
         denom_ag = adj_ag_new.sum(2).unsqueeze(2) + 1
@@ -151,20 +144,29 @@ class EnhancedMultiHeadAttention(nn.Module):
     def _attention_with_relative_position(self, query, key, relative_pos_k, mask, dropout):
         """Compute attention with relative position encoding"""
         d_k = query.size(-1)
+        batch_size, num_heads, seq_len, _ = query.size()
         
         # Standard attention scores
         scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
+        # scores: [batch, heads, seq_len, seq_len]
         
         # Add relative position bias
         # relative_pos_k: [seq_len, seq_len, d_k]
-        # We need to compute position bias for each head
-        batch_size, num_heads, seq_len, _ = query.size()
+        # Compute position scores for each head
+        # query: [batch, heads, seq_len, d_k]
+        # We need: [batch, heads, seq_len, seq_len]
         
-        # Expand relative position for all heads
+        # Reshape query for position scoring: [batch * heads, seq_len, d_k]
+        query_flat = query.contiguous().view(batch_size * num_heads, seq_len, d_k)
+        
+        # Compute relative position scores: [batch * heads, seq_len, seq_len]
         rel_scores = torch.matmul(
-            query,  # [batch, heads, seq_len, d_k]
-            relative_pos_k.unsqueeze(0).unsqueeze(0).expand(batch_size, num_heads, -1, -1, -1).transpose(-2, -1)  # [batch, heads, seq_len, d_k, seq_len]
-        ).squeeze(-2) / math.sqrt(d_k)  # [batch, heads, seq_len, seq_len]
+            query_flat,  # [batch * heads, seq_len, d_k]
+            relative_pos_k.transpose(-2, -1)  # [seq_len, d_k, seq_len]
+        ) / math.sqrt(d_k)
+        
+        # Reshape back: [batch, heads, seq_len, seq_len]
+        rel_scores = rel_scores.view(batch_size, num_heads, seq_len, seq_len)
         
         scores = scores + rel_scores
         
