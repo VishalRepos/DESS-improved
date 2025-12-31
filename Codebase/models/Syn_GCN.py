@@ -9,9 +9,7 @@ class EnhancedSynGCN(nn.Module):
     Enhanced Syntactic GCN with multiple graph convolution approaches:
     - GATv2 (Graph Attention Network v2)
     - GraphSAGE (Sample and Aggregate)
-    - ChebNet (Chebyshev spectral)
-    - Dynamic Edge Convolution
-    - Hybrid fusion of all approaches
+    Memory-optimized version using only 2 best approaches
     """
 
     def __init__(self, emb_dim=768, num_layers=2, gcn_dropout=0.1, num_heads=4):
@@ -21,28 +19,18 @@ class EnhancedSynGCN(nn.Module):
         self.out_dim = emb_dim
         self.num_heads = num_heads
         
-        # GATv2 layers
+        # GATv2 layers (attention-based)
         self.gat_layers = nn.ModuleList()
         for _ in range(num_layers):
             self.gat_layers.append(GATv2Layer(emb_dim, emb_dim, num_heads, gcn_dropout))
         
-        # GraphSAGE layers
+        # GraphSAGE layers (aggregation-based)
         self.sage_layers = nn.ModuleList()
         for _ in range(num_layers):
             self.sage_layers.append(SAGELayer(emb_dim, emb_dim, gcn_dropout))
         
-        # Chebyshev layers
-        self.cheb_layers = nn.ModuleList()
-        for _ in range(num_layers):
-            self.cheb_layers.append(ChebLayer(emb_dim, emb_dim, K=3))
-        
-        # Dynamic Edge Convolution
-        self.edge_conv_layers = nn.ModuleList()
-        for _ in range(num_layers):
-            self.edge_conv_layers.append(EdgeConvLayer(emb_dim, emb_dim, gcn_dropout))
-        
-        # Hybrid fusion
-        self.fusion = HybridFusion(emb_dim, num_approaches=4)
+        # Hybrid fusion (only 2 approaches now)
+        self.fusion = HybridFusion(emb_dim, num_approaches=2)
         
         self.gcn_drop = nn.Dropout(gcn_dropout)
 
@@ -53,29 +41,17 @@ class EnhancedSynGCN(nn.Module):
         # Apply different GCN approaches
         outputs_list = []
         
-        # 1. GATv2
+        # 1. GATv2 (attention-based)
         gat_out = inputs
         for layer in self.gat_layers:
             gat_out = layer(gat_out, adj)
         outputs_list.append(gat_out)
         
-        # 2. GraphSAGE
+        # 2. GraphSAGE (aggregation-based)
         sage_out = inputs
         for layer in self.sage_layers:
             sage_out = layer(sage_out, adj)
         outputs_list.append(sage_out)
-        
-        # 3. Chebyshev
-        cheb_out = inputs
-        for layer in self.cheb_layers:
-            cheb_out = layer(cheb_out, adj)
-        outputs_list.append(cheb_out)
-        
-        # 4. Dynamic Edge Convolution
-        edge_out = inputs
-        for layer in self.edge_conv_layers:
-            edge_out = layer(edge_out, adj)
-        outputs_list.append(edge_out)
         
         # Hybrid fusion
         outputs = self.fusion(outputs_list)
@@ -229,7 +205,7 @@ class EdgeConvLayer(nn.Module):
 class HybridFusion(nn.Module):
     """Hybrid fusion of multiple GCN approaches"""
     
-    def __init__(self, dim, num_approaches=4):
+    def __init__(self, dim, num_approaches=2):
         super(HybridFusion, self).__init__()
         self.attention = nn.Linear(num_approaches, num_approaches)
         self.fusion = nn.Linear(dim, dim)
