@@ -42,6 +42,12 @@ def train_argparser():
         default=False,
         help="Use enhanced Semantic GCN with relative position, global context, and multi-scale features"
     )
+    parser.add_argument(
+        "--use_enhanced_syngcn",
+        action="store_true",
+        default=False,
+        help="Use enhanced Syntactic GCN with GATv2, SAGE, Chebyshev, EdgeConv, and hybrid fusion"
+    )
     parser.add_argument("--is_bidirect", default=True, help="Do use bi-RNN layer.")
     parser.add_argument(
         "--use_gated", default=False, help="Do use gcnconv and gatedgraphconv."

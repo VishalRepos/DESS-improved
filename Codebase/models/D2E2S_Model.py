@@ -3,7 +3,7 @@ import torch
 from trainer import util, sampling
 import os
 import math
-from models.Syn_GCN import GCN
+from models.Syn_GCN import GCN, EnhancedSynGCN
 from models.Sem_GCN import SemGCN, EnhancedSemGCN
 from models.Attention_Module import SelfAttention
 from models.TIN_GCN import TIN, FeatureStacking
@@ -68,7 +68,14 @@ class D2E2SModel(PreTrainedModel):
         )
 
         # self.BertAdapterModel = BertAdapterModel(config)
-        self.Syn_gcn = GCN(self._emb_dim)
+        
+        # Use enhanced or original Syntactic GCN based on parameter
+        if self.args.use_enhanced_syngcn:
+            self.Syn_gcn = EnhancedSynGCN(self._emb_dim)
+            print("Using Enhanced Syntactic GCN with GATv2, SAGE, Chebyshev, EdgeConv, and hybrid fusion")
+        else:
+            self.Syn_gcn = GCN(self._emb_dim)
+            print("Using Original Syntactic GCN")
         
         # Use enhanced or original Semantic GCN based on parameter
         if self.args.use_enhanced_semgcn:
