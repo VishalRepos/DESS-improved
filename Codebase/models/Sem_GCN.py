@@ -152,21 +152,19 @@ class EnhancedMultiHeadAttention(nn.Module):
         
         # Add relative position bias
         # relative_pos_k: [seq_len, seq_len, d_k]
-        # Compute position scores for each head
-        # query: [batch, heads, seq_len, d_k]
-        # We need: [batch, heads, seq_len, seq_len]
+        # Expand for batch and heads: [1, 1, seq_len, seq_len, d_k]
+        rel_pos_expanded = relative_pos_k.unsqueeze(0).unsqueeze(0)
         
-        # Reshape query for position scoring: [batch * heads, seq_len, d_k]
-        query_flat = query.contiguous().view(batch_size * num_heads, seq_len, d_k)
+        # Compute relative position scores
+        # query: [batch, heads, seq_len, d_k] -> [batch, heads, seq_len, 1, d_k]
+        query_expanded = query.unsqueeze(3)
         
-        # Compute relative position scores: [batch * heads, seq_len, seq_len]
+        # rel_pos_expanded: [1, 1, seq_len, seq_len, d_k]
+        # Compute: [batch, heads, seq_len, 1, d_k] x [1, 1, seq_len, d_k, seq_len]
         rel_scores = torch.matmul(
-            query_flat,  # [batch * heads, seq_len, d_k]
-            relative_pos_k.transpose(-2, -1)  # [seq_len, d_k, seq_len]
-        ) / math.sqrt(d_k)
-        
-        # Reshape back: [batch, heads, seq_len, seq_len]
-        rel_scores = rel_scores.view(batch_size, num_heads, seq_len, seq_len)
+            query_expanded,  # [batch, heads, seq_len, 1, d_k]
+            rel_pos_expanded.transpose(-2, -1)  # [1, 1, seq_len, d_k, seq_len]
+        ).squeeze(3) / math.sqrt(d_k)  # [batch, heads, seq_len, seq_len]
         
         scores = scores + rel_scores
         
