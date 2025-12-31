@@ -53,18 +53,25 @@ class EnhancedSemGCN(nn.Module):
         
         # Enhanced attention with relative position
         attn_tensor = self.attn(gcn_inputs, gcn_inputs, src_mask)
-        # attn_tensor shape: [batch, heads, seq_len, seq_len]
+        
+        # Debug logging
+        print(f"[DEBUG EnhancedSemGCN] attn_tensor shape: {attn_tensor.shape}")
         
         # Average across attention heads
         adj_ag_new = attn_tensor.mean(dim=1)  # [batch, seq_len, seq_len]
+        print(f"[DEBUG EnhancedSemGCN] adj_ag_new after mean shape: {adj_ag_new.shape}")
+        print(f"[DEBUG EnhancedSemGCN] adj_ag_new.size(0): {adj_ag_new.size(0)}")
 
         # Add self-loops
         for j in range(adj_ag_new.size(0)):
+            print(f"[DEBUG EnhancedSemGCN] Processing batch {j}, adj_ag_new[{j}] shape: {adj_ag_new[j].shape}")
             adj_ag_new[j] -= torch.diag(torch.diag(adj_ag_new[j]))
             adj_ag_new[j] += torch.eye(adj_ag_new[j].size(0)).to(adj_ag_new.device)
         
+        print(f"[DEBUG EnhancedSemGCN] mask_ shape: {mask_.shape}")
         # Apply mask: [batch, seq_len] -> [batch, seq_len, 1]
         adj_ag_new = mask_.unsqueeze(-1) * adj_ag_new
+        print(f"[DEBUG EnhancedSemGCN] adj_ag_new after mask shape: {adj_ag_new.shape}")
 
         # GCN layers with multi-scale features
         denom_ag = adj_ag_new.sum(2).unsqueeze(2) + 1
