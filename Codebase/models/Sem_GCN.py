@@ -183,8 +183,6 @@ class GlobalContextAggregation(nn.Module):
     
     def __init__(self, dim):
         super(GlobalContextAggregation, self).__init__()
-        self.global_avg_pool = nn.AdaptiveAvgPool1d(1)
-        self.global_max_pool = nn.AdaptiveMaxPool1d(1)
         self.fc = nn.Linear(dim * 2, dim)
         self.gate = nn.Linear(dim, dim)
         
@@ -192,10 +190,13 @@ class GlobalContextAggregation(nn.Module):
         # x: [batch, seq_len, dim]
         batch_size, seq_len, dim = x.size()
         
-        # Global average and max pooling
-        x_transposed = x.transpose(1, 2)  # [batch, dim, seq_len]
-        global_avg = self.global_avg_pool(x_transposed).squeeze(-1)  # [batch, dim]
-        global_max = self.global_max_pool(x_transposed).squeeze(-1)  # [batch, dim]
+        # Global average pooling (deterministic)
+        global_avg = x.mean(dim=1)  # [batch, dim]
+        
+        # Global max pooling (deterministic alternative)
+        # Use masked max instead of adaptive_max_pool
+        x_masked = x.masked_fill(mask.unsqueeze(-1) == 0, -1e9)
+        global_max = x_masked.max(dim=1)[0]  # [batch, dim]
         
         # Combine global features
         global_context = torch.cat([global_avg, global_max], dim=-1)  # [batch, dim*2]
