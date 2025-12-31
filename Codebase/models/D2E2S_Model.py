@@ -62,18 +62,10 @@ class D2E2SModel(PreTrainedModel):
         self.gcn_dim = self.args.gcn_dim
         self.gcn_dropout = self.args.gcn_dropout
 
-        # 2、Enhanced DEBERTA model with better dropout and layer normalization
-        # Update config with enhanced dropout settings
-        config.attention_probs_dropout_prob = self.args.attention_dropout
-        config.hidden_dropout_prob = self.args.hidden_dropout
-        
+        # 2、DEBERT model
         self.deberta = AutoModel.from_pretrained(
             self.args.pretrained_deberta_name, config=config
         )
-        
-        # Add post-transformer layer normalization for better gradient flow
-        self.deberta_layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
-        self.deberta_dropout = nn.Dropout(self.args.hidden_dropout)
 
         # self.BertAdapterModel = BertAdapterModel(config)
         self.Syn_gcn = GCN(self._emb_dim)
@@ -178,14 +170,9 @@ class D2E2SModel(PreTrainedModel):
         batch_size = encodings.shape[0]
         seq_lens = encodings.shape[1]
 
-        # encoder layer with enhanced normalization and dropout
+        # encoder layer
         # h = self.BertAdapterModel(input_ids=encodings, attention_mask=self.context_masks)[0]
-        deberta_output = self.deberta(input_ids=encodings, attention_mask=self.context_masks)[0]
-        
-        # Apply enhanced layer normalization and dropout with residual connection
-        h = self.deberta_layer_norm(deberta_output)
-        h = self.deberta_dropout(h) + deberta_output  # Residual connection
-        
+        h = self.deberta(input_ids=encodings, attention_mask=self.context_masks)[0]
         self.output, _ = self.lstm(h, self.hidden)
         self.deberta_lstm_output = self.lstm_dropout(self.output)
         self.deberta_lstm_att_feature = self.deberta_lstm_output
@@ -251,14 +238,9 @@ class D2E2SModel(PreTrainedModel):
         batch_size = encodings.shape[0]
         seq_lens = encodings.shape[1]
 
-        # encoder layer with enhanced normalization and dropout
+        # encoder layer
         # h = self.BertAdapterModel(input_ids=encodings, attention_mask=self.context_masks)[0]
-        deberta_output = self.deberta(input_ids=encodings, attention_mask=self.context_masks)[0]
-        
-        # Apply enhanced layer normalization and dropout with residual connection
-        h = self.deberta_layer_norm(deberta_output)
-        h = self.deberta_dropout(h) + deberta_output  # Residual connection
-        
+        h = self.deberta(input_ids=encodings, attention_mask=self.context_masks)[0]
         self.output, _ = self.lstm(h, self.hidden)
         self.deberta_lstm_output = self.lstm_dropout(self.output)
         self.deberta_lstm_att_feature = self.deberta_lstm_output

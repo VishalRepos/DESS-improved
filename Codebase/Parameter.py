@@ -36,18 +36,6 @@ def train_argparser():
     parser.add_argument(
         "--drop_out_rate", type=float, default=0.5, help="drop out rate."
     )
-    parser.add_argument(
-        "--attention_dropout", 
-        type=float, 
-        default=0.1, 
-        help="Dropout rate for attention layers in transformer"
-    )
-    parser.add_argument(
-        "--hidden_dropout", 
-        type=float, 
-        default=0.1, 
-        help="Dropout rate for hidden layers in transformer"
-    )
     parser.add_argument("--is_bidirect", default=True, help="Do use bi-RNN layer.")
     parser.add_argument(
         "--use_gated", default=False, help="Do use gcnconv and gatedgraphconv."

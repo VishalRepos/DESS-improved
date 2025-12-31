@@ -4,7 +4,29 @@ This document tracks all improvements and changes made to the DESS (D2E2S) model
 
 ---
 
-## [87a526c] - 2025-12-30 23:19:27 +0530
+## [Pending] - 2025-12-31 06:35:00 +0530
+### Revert: Remove dropout and layer normalization enhancement
+
+**Motivation**: Enhancement [ef6fbec] did not show significant improvement in results (75.75% Triplet F1). Reverting to baseline for new experiments.
+
+**Changes**:
+- **Parameter.py**: Removed `--attention_dropout` and `--hidden_dropout` parameters
+- **models/D2E2S_Model.py**: 
+  - Removed config dropout modifications
+  - Removed `deberta_layer_norm` and `deberta_dropout` layers
+  - Reverted forward passes to original implementation (no residual connections)
+- **DESS_Kaggle_P100.ipynb**: Removed dropout parameters from training commands
+
+**Impact**: Code reverted to commit 9a909f0 state (with AdamW fixes retained)
+
+**Baseline Results** (for comparison):
+- Best Epoch: 94
+- Entity F1: 87.65%
+- Triplet F1: 75.75%
+
+---
+
+## [17fb0ee] - 2025-12-31 06:31:00 +0530
 ### fix: Remove correct_bias parameter from torch.optim.AdamW
 
 **Motivation**: `correct_bias` parameter doesn't exist in `torch.optim.AdamW` (only in transformers' old AdamW)
