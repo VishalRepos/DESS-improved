@@ -53,19 +53,10 @@ class EnhancedSemGCN(nn.Module):
         
         # Enhanced attention with relative position
         attn_tensor = self.attn(gcn_inputs, gcn_inputs, src_mask)
-        attn_adj_list = [
-            attn_adj.squeeze(1) for attn_adj in torch.split(attn_tensor, 1, dim=1)
-        ]
+        # attn_tensor shape: [batch, heads, seq_len, seq_len]
         
-        # Aggregate attention heads
-        adj_ag = None
-        for i in range(self.attention_heads):
-            if adj_ag is None:
-                adj_ag = attn_adj_list[i]
-            else:
-                adj_ag += attn_adj_list[i]
-        adj_ag_new = adj_ag.clone()
-        adj_ag_new /= self.attention_heads
+        # Average across attention heads
+        adj_ag_new = attn_tensor.mean(dim=1)  # [batch, seq_len, seq_len]
 
         # Add self-loops
         for j in range(adj_ag_new.size(0)):
