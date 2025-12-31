@@ -156,12 +156,17 @@ class EnhancedMultiHeadAttention(nn.Module):
         scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
         
         # Add relative position bias
-        # Simplified: average across heads for relative position
+        # relative_pos_k: [seq_len, seq_len, d_k]
+        # We need to compute position bias for each head
+        batch_size, num_heads, seq_len, _ = query.size()
+        
+        # Expand relative position for all heads
         rel_scores = torch.matmul(
-            query.mean(dim=1, keepdim=True), 
-            relative_pos_k.transpose(-2, -1)
-        ) / math.sqrt(d_k)
-        scores = scores + rel_scores.expand_as(scores)
+            query,  # [batch, heads, seq_len, d_k]
+            relative_pos_k.unsqueeze(0).unsqueeze(0).expand(batch_size, num_heads, -1, -1, -1).transpose(-2, -1)  # [batch, heads, seq_len, d_k, seq_len]
+        ).squeeze(-2) / math.sqrt(d_k)  # [batch, heads, seq_len, seq_len]
+        
+        scores = scores + rel_scores
         
         if mask is not None:
             scores = scores.masked_fill(mask == 0, -1e9)
