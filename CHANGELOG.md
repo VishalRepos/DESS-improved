@@ -4,6 +4,37 @@ This document tracks all improvements and changes made to the DESS (D2E2S) model
 
 ---
 
+## [87a526c] - 2025-12-30 23:19:27 +0530
+### fix: Remove correct_bias parameter from torch.optim.AdamW
+
+**Motivation**: `correct_bias` parameter doesn't exist in `torch.optim.AdamW` (only in transformers' old AdamW)
+
+**Changes**:
+- **train.py**: Removed `correct_bias=False` parameter from AdamW initialization
+
+**Impact**: Fixed compatibility with PyTorch's native AdamW optimizer
+
+---
+
+## [f423db5] - 2025-12-30 23:13:49 +0530
+### fix: Import AdamW from torch.optim instead of transformers
+
+**Motivation**: AdamW was moved from transformers to torch.optim in newer versions
+
+**Changes**:
+- **train.py**: Changed `from transformers import AdamW` to `from torch.optim import AdamW`
+
+**Impact**: Fixed import error with newer transformers versions
+
+---
+
+## [033a45b] - 2025-12-30 21:14:21 +0530
+### docs: Update CHANGELOG with timestamps for all commits
+
+**Changes**: Added full timestamps (date + time + timezone) to all changelog entries
+
+---
+
 ## [e2cb33d] - 2025-12-30 21:12:16 +0530
 ### docs: Add CHANGELOG.md to track all improvements and changes
 
@@ -36,6 +67,12 @@ This document tracks all improvements and changes made to the DESS (D2E2S) model
 - Improved gradient flow through deeper layers
 - More stable training with residual connections
 - Configurable dropout for experimentation
+
+**Results** (120 epochs on 14res dataset):
+- **Best Epoch**: 94
+- **Entity F1**: 87.65%
+- **Triplet F1**: 75.75% ⭐
+- Model shows excellent stability in epochs 90-120
 
 **Testing**:
 ```bash
@@ -83,10 +120,27 @@ python train.py --dataset 14res --epochs 120 \
 
 ---
 
-## [6eb6529] - 2025-04-30 (Initial)
+## [6eb6529] - 2025-02-14 00:00:02 +0530
 ### Initial commit - Deberta V2 xxlarge
 
 **Changes**: Initial codebase with DeBERTa-v2-xxlarge model
+
+---
+
+## Training Results Summary
+
+### Best Model Performance (Epoch 94):
+- **Dataset**: Restaurant 2014 (14res)
+- **Entity Extraction F1**: 87.65%
+- **Triplet Extraction F1**: 75.75%
+- **Configuration**: deberta-v3-base with enhanced dropout (0.1) and layer normalization
+
+### Top 5 Epochs:
+1. Epoch 94: 75.75% (Triplet F1)
+2. Epoch 117: 75.42%
+3. Epoch 99: 75.37%
+4. Epoch 107: 75.22%
+5. Epoch 98: 75.09%
 
 ---
 
@@ -97,6 +151,8 @@ python train.py --dataset 14res --epochs 120 \
 2. Improved entity-sentiment pair classification
 3. Multi-task learning enhancements
 4. Advanced data augmentation techniques
+5. Experiment with different dropout rates (0.15, 0.2)
+6. Test on other datasets (14lap, 15res, 16res)
 
 ---
 
@@ -113,9 +169,10 @@ When making changes:
    - Motivation
    - Expected impact
    - Testing commands (if applicable)
+   - Results (if available)
 
 **Format**: `## [commit_hash] - YYYY-MM-DD HH:MM:SS +TIMEZONE`
 
 ---
 
-**Last Updated**: 2025-12-30 21:12:16 +0530
+**Last Updated**: 2025-12-31 06:30:00 +0530
