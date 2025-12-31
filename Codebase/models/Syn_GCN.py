@@ -231,7 +231,7 @@ class HybridFusion(nn.Module):
     
     def __init__(self, dim, num_approaches=4):
         super(HybridFusion, self).__init__()
-        self.attention = nn.Linear(dim, num_approaches)
+        self.attention = nn.Linear(num_approaches, num_approaches)
         self.fusion = nn.Linear(dim, dim)
     
     def forward(self, outputs_list):
@@ -239,8 +239,11 @@ class HybridFusion(nn.Module):
         stacked = torch.stack(outputs_list, dim=2)  # [batch, seq_len, num_approaches, dim]
         
         # Attention-based fusion
-        attn_scores = self.attention(stacked.mean(dim=-1))  # [batch, seq_len, num_approaches]
-        attn_weights = F.softmax(attn_scores, dim=-1).unsqueeze(-1)  # [batch, seq_len, num_approaches, 1]
+        # Transpose to [batch, seq_len, dim, num_approaches] for attention
+        stacked_t = stacked.transpose(2, 3)  # [batch, seq_len, dim, num_approaches]
+        attn_scores = self.attention(stacked_t)  # [batch, seq_len, dim, num_approaches]
+        attn_scores = attn_scores.transpose(2, 3)  # [batch, seq_len, num_approaches, dim]
+        attn_weights = F.softmax(attn_scores.mean(dim=-1, keepdim=True), dim=2)  # [batch, seq_len, num_approaches, 1]
         
         # Weighted combination
         fused = (stacked * attn_weights).sum(dim=2)  # [batch, seq_len, dim]
