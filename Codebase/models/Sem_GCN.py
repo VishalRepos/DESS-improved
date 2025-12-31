@@ -47,7 +47,7 @@ class EnhancedSemGCN(nn.Module):
         tok = encoding
         src_mask = (tok != 0).unsqueeze(-2)
         maxlen = seq_lens
-        mask_ = (torch.zeros_like(tok) != tok).float().unsqueeze(-1)[:, :maxlen]
+        mask_ = (torch.zeros_like(tok) != tok).float()[:, :maxlen]  # [batch, seq_len]
 
         gcn_inputs = inputs
         
@@ -62,7 +62,9 @@ class EnhancedSemGCN(nn.Module):
         for j in range(adj_ag_new.size(0)):
             adj_ag_new[j] -= torch.diag(torch.diag(adj_ag_new[j]))
             adj_ag_new[j] += torch.eye(adj_ag_new[j].size(0)).to(adj_ag_new.device)
-        adj_ag_new = mask_ * adj_ag_new
+        
+        # Apply mask: [batch, seq_len] -> [batch, seq_len, 1]
+        adj_ag_new = mask_.unsqueeze(-1) * adj_ag_new
 
         # GCN layers with multi-scale features
         denom_ag = adj_ag_new.sum(2).unsqueeze(2) + 1
