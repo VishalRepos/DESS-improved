@@ -1,0 +1,127 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    CONTRASTIVE LEARNING IMPLEMENTATION FLOW                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ INPUT: "The pasta was delicious but service was slow"                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ DeBERTa Encoder + GCNs + BiLSTM                                             │
+│ → Contextualized token representations                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Entity Classification                                                        │
+│ → Extract all entity spans: [pasta, delicious, service, slow, ...]         │
+│ → entity_spans_pool: [batch, num_entities, 768]                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    │                               │
+                    ▼                               ▼
+┌──────────────────────────────┐   ┌──────────────────────────────┐
+│ EXISTING PATH                │   │ NEW: CONTRASTIVE LEARNING    │
+│ (Sentiment Classification)   │   │                              │
+│                              │   │ Ground Truth Triplets:       │
+│ Classify all entity pairs    │   │ - (pasta, delicious)         │
+│ for sentiment                │   │ - (service, slow)            │
+└──────────────────────────────┘   └──────────────────────────────┘
+                                                    │
+                                                    ▼
+                    ┌───────────────────────────────────────────────┐
+                    │ Extract Entity-Opinion Representations        │
+                    │                                               │
+                    │ For each triplet (entity_idx, opinion_idx):  │
+                    │   entity_repr = entity_spans_pool[entity_idx] │
+                    │   opinion_repr = entity_spans_pool[opinion_idx]│
+                    └───────────────────────────────────────────────┘
+                                                    │
+                                                    ▼
+                    ┌───────────────────────────────────────────────┐
+                    │ SimplifiedContrastiveLoss                     │
+                    │                                               │
+                    │ 1. Project to contrastive space:              │
+                    │    entity_emb = Linear(entity_repr)           │
+                    │    opinion_emb = Linear(opinion_repr)         │
+                    │                                               │
+                    │ 2. L2 Normalize:                              │
+                    │    entity_emb = normalize(entity_emb)         │
+                    │    opinion_emb = normalize(opinion_emb)       │
+                    │                                               │
+                    │ 3. Compute Similarity Matrix:                 │
+                    │    similarity = entity_emb @ opinion_emb.T    │
+                    │                 / temperature                 │
+                    │                                               │
+                    │    Example (2 triplets):                      │
+                    │    ┌─────────────────────────────┐            │
+                    │    │  Opinion 1  │  Opinion 2    │            │
+                    │    ├─────────────┼───────────────┤            │
+                    │    │    0.95     │     0.12      │ Entity 1   │
+                    │    │    0.08     │     0.89      │ Entity 2   │
+                    │    └─────────────────────────────┘            │
+                    │    Diagonal = Positive pairs (high similarity)│
+                    │    Off-diagonal = Negative pairs (low sim)    │
+                    │                                               │
+                    │ 4. InfoNCE Loss:                              │
+                    │    For each positive pair on diagonal:        │
+                    │      loss = -log(exp(pos_sim) /               │
+                    │                  sum(exp(all_sims)))          │
+                    │                                               │
+                    │    Encourages:                                │
+                    │    ✓ High similarity for positive pairs       │
+                    │    ✗ Low similarity for negative pairs        │
+                    └───────────────────────────────────────────────┘
+                                                    │
+                                                    ▼
+                    ┌───────────────────────────────────────────────┐
+                    │ Total Loss Computation                        │
+                    │                                               │
+                    │ total_loss = entity_loss                      │
+                    │            + sentiment_loss                   │
+                    │            + λ * contrastive_loss             │
+                    │              ↑                                │
+                    │         (λ = 0.1)                             │
+                    └───────────────────────────────────────────────┘
+                                                    │
+                                                    ▼
+                    ┌───────────────────────────────────────────────┐
+                    │ Backward Pass & Optimization                  │
+                    │                                               │
+                    │ Gradients flow back to:                       │
+                    │ - Entity encoder                              │
+                    │ - Opinion encoder                             │
+                    │ - Entity span representations                 │
+                    │ - All upstream layers (GCN, DeBERTa)          │
+                    └───────────────────────────────────────────────┘
+                                                    │
+                                                    ▼
+                    ┌───────────────────────────────────────────────┐
+                    │ RESULT: Better Entity-Opinion Pairing         │
+                    │                                               │
+                    │ Model learns:                                 │
+                    │ ✓ (pasta, delicious) → Close in space        │
+                    │ ✓ (service, slow) → Close in space           │
+                    │ ✗ (pasta, slow) → Far in space               │
+                    │ ✗ (service, delicious) → Far in space        │
+                    │                                               │
+                    │ Expected Improvement: +0.5-0.8% Triplet F1    │
+                    └───────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                              KEY INSIGHTS                                     ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                               ║
+║ 1. MINIMAL CHANGES: Only ~70 lines of code modifications needed              ║
+║                                                                               ║
+║ 2. LOW RISK: Contrastive loss is additive, doesn't break existing training  ║
+║                                                                               ║
+║ 3. HIGH IMPACT: Directly addresses entity-opinion pairing, core to ASTE      ║
+║                                                                               ║
+║ 4. EFFICIENT: Minimal computational overhead (~5-10% training time)          ║
+║                                                                               ║
+║ 5. TUNABLE: Easy to adjust via temperature and weight hyperparameters        ║
+║                                                                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝

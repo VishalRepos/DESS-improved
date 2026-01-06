@@ -7,6 +7,7 @@ from models.Syn_GCN import GCN, EnhancedSynGCN
 from models.Sem_GCN import SemGCN, EnhancedSemGCN
 from models.Attention_Module import SelfAttention
 from models.TIN_GCN import TIN, FeatureStacking
+from models.Contrastive_Module import SimplifiedContrastiveLoss
 import torch.nn.functional as F
 import numpy as np
 from sklearn.manifold import TSNE
@@ -93,6 +94,15 @@ class D2E2SModel(PreTrainedModel):
         )
         self.size_embeddings = nn.Embedding(100, self._size_embedding)
         self.dropout = nn.Dropout(self._prop_drop)
+        
+        # Contrastive learning for entity-opinion pairing
+        self.contrastive_encoder = SimplifiedContrastiveLoss(
+            hidden_dim=self._emb_dim,
+            temperature=0.07
+        )
+        self.use_contrastive = getattr(self.args, 'use_contrastive', False)
+        self.contrastive_weight = getattr(self.args, 'contrastive_weight', 0.1)
+        
         self._cls_token = cls_token
         self._sentiment_types = sentiment_types
         self._entity_types = entity_types
@@ -217,6 +227,11 @@ class D2E2SModel(PreTrainedModel):
             encodings, h, entity_masks, size_embeddings, self.args
         )
 
+        # Contrastive learning for entity-opinion pairing
+        contrastive_loss = torch.tensor(0.0, device=h.device)
+        if self.use_contrastive and self.training:
+            contrastive_loss = self._compute_contrastive_loss(entity_spans_pool, sentiments)
+
         # relation_classify
         h_large = h.unsqueeze(1).repeat(
             1, max(min(sentiments.shape[1], self._max_pairs), 1), 1, 1
@@ -236,7 +251,7 @@ class D2E2SModel(PreTrainedModel):
 
         batch_loss = compute_loss(adj_sem_ori, adj_sem_gcn, adj)
 
-        return entity_clf, senti_clf, batch_loss
+        return entity_clf, senti_clf, batch_loss, contrastive_loss
 
     def _forward_eval(
         self,
@@ -396,6 +411,59 @@ class D2E2SModel(PreTrainedModel):
         # classify sentiment candidates
         chunk_senti_logits = self.senti_classifier(senti_repr)
         return chunk_senti_logits
+
+    def _compute_contrastive_loss(self, entity_spans_pool, sentiments):
+        """
+        Compute contrastive loss for entity-opinion pairs.
+        
+        Args:
+            entity_spans_pool: [batch_size, num_entities, hidden_dim]
+            sentiments: [batch_size, num_pairs, 2] - ground truth pairs (entity_idx, opinion_idx)
+        
+        Returns:
+            contrastive_loss: scalar tensor
+        """
+        device = entity_spans_pool.device
+        
+        # Collect all positive entity-opinion pairs across batch
+        all_entity_reprs = []
+        all_opinion_reprs = []
+        
+        batch_size = sentiments.shape[0]
+        for b in range(batch_size):
+            pairs = sentiments[b]  # [num_pairs, 2]
+            
+            for entity_idx, opinion_idx in pairs:
+                entity_idx = entity_idx.item()
+                opinion_idx = opinion_idx.item()
+                
+                # Skip invalid pairs (padding)
+                if entity_idx == 0 and opinion_idx == 0:
+                    continue
+                
+                # Skip if indices out of bounds
+                if entity_idx >= entity_spans_pool.shape[1] or opinion_idx >= entity_spans_pool.shape[1]:
+                    continue
+                
+                # Get entity and opinion representations
+                entity_repr = entity_spans_pool[b, entity_idx]
+                opinion_repr = entity_spans_pool[b, opinion_idx]
+                
+                all_entity_reprs.append(entity_repr)
+                all_opinion_reprs.append(opinion_repr)
+        
+        # If no valid pairs, return zero loss
+        if len(all_entity_reprs) == 0:
+            return torch.tensor(0.0, device=device, requires_grad=True)
+        
+        # Stack into tensors
+        entity_batch = torch.stack(all_entity_reprs)  # [num_triplets, hidden_dim]
+        opinion_batch = torch.stack(all_opinion_reprs)  # [num_triplets, hidden_dim]
+        
+        # Compute contrastive loss
+        loss = self.contrastive_encoder(entity_batch, opinion_batch)
+        
+        return loss
 
     def log_sample_total(self, neg_entity_count_all):
         log_path = os.path.join("./log/Sample/", "countSample.txt")

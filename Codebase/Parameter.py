@@ -48,6 +48,18 @@ def train_argparser():
         default=False,
         help="Use enhanced Syntactic GCN with GATv2, SAGE, Chebyshev, EdgeConv, and hybrid fusion"
     )
+    parser.add_argument(
+        "--use_contrastive",
+        action="store_true",
+        default=False,
+        help="Use contrastive learning for entity-opinion pairing"
+    )
+    parser.add_argument(
+        "--contrastive_weight",
+        type=float,
+        default=0.1,
+        help="Weight for contrastive loss (default: 0.1)"
+    )
     parser.add_argument("--is_bidirect", default=True, help="Do use bi-RNN layer.")
     parser.add_argument(
         "--use_gated", default=False, help="Do use gcnconv and gatedgraphconv."

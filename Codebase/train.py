@@ -166,7 +166,7 @@ class D2E2S_Trainer(BaseTrainer):
             batch = util.to_device(batch, arg_parser.device)
 
             # forward step
-            entity_logits, senti_logits, batch_loss = model(
+            entity_logits, senti_logits, batch_loss, contrastive_loss = model(
                 encodings=batch["encodings"],
                 context_masks=batch["context_masks"],
                 entity_masks=batch["entity_masks"],
@@ -186,6 +186,10 @@ class D2E2S_Trainer(BaseTrainer):
                 entity_sample_masks=batch["entity_sample_masks"],
                 senti_sample_masks=batch["senti_sample_masks"],
             )
+            
+            # Add contrastive loss
+            if arg_parser.use_contrastive:
+                epoch_loss = epoch_loss + arg_parser.contrastive_weight * contrastive_loss
 
             # logging
             iteration += 1
