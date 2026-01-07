@@ -60,6 +60,12 @@ def train_argparser():
         default=0.1,
         help="Weight for contrastive loss (default: 0.1)"
     )
+    parser.add_argument(
+        "--use_boundary_refinement",
+        action="store_true",
+        default=False,
+        help="Use boundary-aware attention for span refinement"
+    )
     parser.add_argument("--is_bidirect", default=True, help="Do use bi-RNN layer.")
     parser.add_argument(
         "--use_gated", default=False, help="Do use gcnconv and gatedgraphconv."

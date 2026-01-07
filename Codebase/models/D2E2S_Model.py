@@ -8,6 +8,7 @@ from models.Sem_GCN import SemGCN, EnhancedSemGCN
 from models.Attention_Module import SelfAttention
 from models.TIN_GCN import TIN, FeatureStacking
 from models.Contrastive_Module import SimplifiedContrastiveLoss
+from models.Boundary_Refinement import SimplifiedBoundaryRefinement
 import torch.nn.functional as F
 import numpy as np
 from sklearn.manifold import TSNE
@@ -102,6 +103,13 @@ class D2E2SModel(PreTrainedModel):
         )
         self.use_contrastive = getattr(self.args, 'use_contrastive', False)
         self.contrastive_weight = getattr(self.args, 'contrastive_weight', 0.1)
+        
+        # Boundary refinement for better span extraction
+        self.boundary_refiner = SimplifiedBoundaryRefinement(
+            hidden_dim=self._emb_dim,
+            dropout=self._prop_drop
+        )
+        self.use_boundary_refinement = getattr(self.args, 'use_boundary_refinement', False)
         
         self._cls_token = cls_token
         self._sentiment_types = sentiment_types
@@ -346,13 +354,23 @@ class D2E2SModel(PreTrainedModel):
         entity_spans_pool = m + h.unsqueeze(1).repeat(1, entity_masks.shape[1], 1, 1)
 
         self.args = args
-        if self.args.span_generator == "Average" or self.args.span_generator == "Max":
-            if self.args.span_generator == "Max":
-                entity_spans_pool = entity_spans_pool.max(dim=2)[0]
-            else:
-                entity_spans_pool = entity_spans_pool.mean(dim=2, keepdim=True).squeeze(
-                    -2
-                )
+        
+        # Apply boundary refinement if enabled
+        if self.use_boundary_refinement:
+            # Create mask: 1 for valid tokens, 0 for padding
+            span_mask = (entity_masks != 0).float()  # [batch, num_entities, span_len]
+            
+            # Apply boundary refinement
+            entity_spans_pool = self.boundary_refiner(entity_spans_pool, span_mask)
+        else:
+            # Original pooling
+            if self.args.span_generator == "Average" or self.args.span_generator == "Max":
+                if self.args.span_generator == "Max":
+                    entity_spans_pool = entity_spans_pool.max(dim=2)[0]
+                else:
+                    entity_spans_pool = entity_spans_pool.mean(dim=2, keepdim=True).squeeze(
+                        -2
+                    )
 
         # get cls token as candidate context representation
         entity_ctx = get_token(h, encodings, self._cls_token)
