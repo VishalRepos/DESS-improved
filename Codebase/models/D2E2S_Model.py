@@ -350,20 +350,26 @@ class D2E2SModel(PreTrainedModel):
         # m: tensor(4,132,24,1)
         # encoding: tensor(4,24)
         # entity_spans_pool: tensor(4，132，24，768) -> tensor(4,132,768)
-        m = (entity_masks.unsqueeze(-1) == 0).float() * (-1e30)
-        entity_spans_pool = m + h.unsqueeze(1).repeat(1, entity_masks.shape[1], 1, 1)
-
+        
         self.args = args
         
         # Apply boundary refinement if enabled
         if self.use_boundary_refinement:
+            # Don't apply mask yet - boundary refiner needs clean features
+            entity_spans_pool = h.unsqueeze(1).repeat(1, entity_masks.shape[1], 1, 1)
+            # [batch, num_entities, span_len, hidden_dim]
+            
             # Create mask: 1 for valid tokens, 0 for padding
             span_mask = (entity_masks != 0).float()  # [batch, num_entities, span_len]
             
             # Apply boundary refinement
             entity_spans_pool = self.boundary_refiner(entity_spans_pool, span_mask)
+            # [batch, num_entities, hidden_dim]
         else:
-            # Original pooling
+            # Original pooling with mask
+            m = (entity_masks.unsqueeze(-1) == 0).float() * (-1e30)
+            entity_spans_pool = m + h.unsqueeze(1).repeat(1, entity_masks.shape[1], 1, 1)
+            
             if self.args.span_generator == "Average" or self.args.span_generator == "Max":
                 if self.args.span_generator == "Max":
                     entity_spans_pool = entity_spans_pool.max(dim=2)[0]
