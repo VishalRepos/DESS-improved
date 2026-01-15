@@ -66,6 +66,18 @@ def train_argparser():
         default=False,
         help="Use boundary-aware attention for span refinement"
     )
+    parser.add_argument(
+        "--use_cross_attention",
+        action="store_true",
+        default=False,
+        help="Use cross-attention fusion instead of TIN concatenation"
+    )
+    parser.add_argument(
+        "--cross_attention_heads",
+        type=int,
+        default=8,
+        help="Number of attention heads for cross-attention fusion (default: 8)"
+    )
     parser.add_argument("--is_bidirect", default=True, help="Do use bi-RNN layer.")
     parser.add_argument(
         "--use_gated", default=False, help="Do use gcnconv and gatedgraphconv."

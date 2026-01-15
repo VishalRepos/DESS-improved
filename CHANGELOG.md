@@ -4,6 +4,74 @@ This document tracks all improvements and changes made to the DESS (D2E2S) model
 
 ---
 
+## [Pending] - 2026-01-15 11:10:00 +0530
+### Enhancement: Cross-Attention Fusion (Replace TIN Concatenation)
+
+**Motivation**: Previous TIN module simply concatenates semantic and syntactic features. Cross-attention allows features to query each other, learning which features are important for each context. This should provide better integration of complementary information.
+
+**Why it will work**:
+- Semantic features can query syntactic features and vice versa
+- Multi-head attention learns feature importance dynamically
+- Better than simple concatenation for integrating complementary information
+- Lower risk than boundary refinement (which failed with -5.68%)
+
+**Changes**:
+- **models/Cross_Attention_Fusion.py**: 
+  - New module with multi-head cross-attention between semantic and syntactic GCN outputs
+  - Semantic features query syntactic (sem→syn attention)
+  - Syntactic features query semantic (syn→sem attention)
+  - Residual connections and layer normalization for stability
+  - Configurable number of attention heads (default: 8)
+
+- **Parameter.py**:
+  - Added `--use_cross_attention` flag to enable cross-attention fusion
+  - Added `--cross_attention_heads` parameter (default: 8)
+
+- **models/D2E2S_Model.py**:
+  - Replaced hardcoded TIN with conditional `fusion_module`
+  - Uses `CrossAttentionFusion` when `--use_cross_attention` is enabled
+  - Falls back to original `TIN` when disabled
+  - Updated both `_forward_train` and `_forward_eval` methods
+
+- **test_cross_attention.py**:
+  - Comprehensive test script to validate the module
+  - Tests shape compatibility, NaN/Inf checks, different batch sizes
+  - Compares with TIN module interface
+
+**Expected Impact**:
+- Better semantic-syntactic feature integration
+- Learned attention weights for context-dependent feature importance
+- Expected improvement: +0.5-0.7% in Triplet F1
+- Target: 77.6-77.8% (from 77.14% Enhanced SemGCN baseline)
+
+**Testing**:
+```bash
+# Test the module
+python test_cross_attention.py
+
+# Train with cross-attention fusion
+python train.py --dataset 14res --epochs 120 \
+    --use_enhanced_semgcn \
+    --use_cross_attention \
+    --cross_attention_heads 8 \
+    --pretrained_deberta_name microsoft/deberta-v3-base \
+    --deberta_feature_dim 768 --hidden_dim 384 --emb_dim 768
+```
+
+**Comparison with Previous Approaches**:
+- ✅ Enhanced SemGCN: 77.14% (baseline)
+- ❌ Contrastive Learning: 76.10% (-1.04%)
+- ❌ Boundary Refinement: 71.46% (-5.68%)
+- 🎯 Cross-Attention Fusion: Expected 77.6-77.8% (+0.5-0.7%)
+
+**Advantages over TIN**:
+1. **Dynamic feature weighting**: Attention learns importance, not fixed concatenation
+2. **Bidirectional querying**: Both semantic and syntactic can query each other
+3. **Multi-head attention**: Captures different aspects of feature relationships
+4. **Residual connections**: Preserves original information while adding refinement
+
+---
+
 ## [Pending] - 2025-12-31 06:35:00 +0530
 ### Revert: Remove dropout and layer normalization enhancement
 

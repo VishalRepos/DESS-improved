@@ -7,6 +7,7 @@ from models.Syn_GCN import GCN, EnhancedSynGCN
 from models.Sem_GCN import SemGCN, EnhancedSemGCN
 from models.Attention_Module import SelfAttention
 from models.TIN_GCN import TIN, FeatureStacking
+from models.Cross_Attention_Fusion import CrossAttentionFusion
 from models.Contrastive_Module import SimplifiedContrastiveLoss
 from models.Boundary_Refinement import SimplifiedBoundaryRefinement
 import torch.nn.functional as F
@@ -183,7 +184,18 @@ class D2E2SModel(PreTrainedModel):
         # self.Biaffine_ATT = BiaffineAttention(self.bert_feature_dim, self.bert_feature_dim)
 
         # 7、feature merge model
-        self.TIN = TIN(self.deberta_feature_dim)
+        self.use_cross_attention = getattr(self.args, 'use_cross_attention', False)
+        if self.use_cross_attention:
+            cross_attention_heads = getattr(self.args, 'cross_attention_heads', 8)
+            self.fusion_module = CrossAttentionFusion(
+                hidden_dim=self.deberta_feature_dim,
+                num_heads=cross_attention_heads,
+                dropout=self._prop_drop
+            )
+            print(f"Using Cross-Attention Fusion with {cross_attention_heads} heads")
+        else:
+            self.fusion_module = TIN(self.deberta_feature_dim)
+            print("Using TIN concatenation fusion")
         # self.TextCentredSP = TextCentredSP(self.bert_feature_dim*2, self.shared_dim, self.private_dim)
 
     def _forward_train(
@@ -223,7 +235,7 @@ class D2E2SModel(PreTrainedModel):
         )
 
         # fusion layer
-        h1 = self.TIN(
+        h1 = self.fusion_module(
             h, h_syn_ori, h_syn_gcn, h_sem_ori, h_sem_gcn, adj_sem_ori, adj_sem_gcn
         )
         h = self.attention_layer(h1, h1, self.context_masks[:, :seq_lens]) + h1
@@ -297,7 +309,7 @@ class D2E2SModel(PreTrainedModel):
         )
 
         # fusion layer
-        h1 = self.TIN(
+        h1 = self.fusion_module(
             h, h_syn_ori, h_syn_gcn, h_sem_ori, h_sem_gcn, adj_sem_ori, adj_sem_gcn
         )
         h = self.attention_layer(h1, h1, self.context_masks[:, :seq_lens]) + h1
