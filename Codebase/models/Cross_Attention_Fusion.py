@@ -64,20 +64,20 @@ class CrossAttentionFusion(nn.Module):
         h_syn = self.norm1(h_feature + h_syn_feature)
         h_sem = self.norm2(h_feature + h_sem_feature)
         
-        # Cross-attention: semantic queries syntactic
-        # Query: semantic, Key/Value: syntactic
+        # Cross-attention: semantic queries syntactic (need_weights=False for speed)
         sem_attended, _ = self.sem_to_syn_attn(
             query=h_sem,
             key=h_syn,
-            value=h_syn
+            value=h_syn,
+            need_weights=False
         )
         
-        # Cross-attention: syntactic queries semantic
-        # Query: syntactic, Key/Value: semantic
+        # Cross-attention: syntactic queries semantic (need_weights=False for speed)
         syn_attended, _ = self.syn_to_sem_attn(
             query=h_syn,
             key=h_sem,
-            value=h_sem
+            value=h_sem,
+            need_weights=False
         )
         
         # Residual connections for attended features
