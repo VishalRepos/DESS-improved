@@ -24,42 +24,42 @@ python train.py --dataset 14res --epochs 120 \
 
 ## Output Format
 
-For each sentence during evaluation, you'll see:
+For each sentence during evaluation, you'll see a single-line JSON:
 
+```json
+{"ID": "sentence_1_0", "Text": "this version has been my least favorite version", "Quadruplet": [{"Aspect": "version", "Opinion": "least favorite", "Sentiment": "NEG"}]}
 ```
-================================================================================
-SENTENCE 0:
-Text: this version has been my least favorite version i've had for the following reasons listed bellow the pros.
---------------------------------------------------------------------------------
-PREDICTED ENTITIES (2):
-  1. [1:2] 'version' -> ASPECT (score: 0.923)
-  2. [5:7] 'least favorite' -> OPINION (score: 0.856)
 
-PREDICTED TRIPLETS (1):
-  1. Aspect: 'version' [1:2] (ASPECT)
-     Opinion: 'least favorite' [5:7] (OPINION)
-     Sentiment: NEG (score: 0.789)
-================================================================================
+### Multiple Triplets:
+```json
+{"ID": "sentence_1_12", "Text": "The service is great, the desserts are excellent and the coffee is so very good", "Quadruplet": [{"Aspect": "service", "Opinion": "great", "Sentiment": "POS"}, {"Aspect": "desserts", "Opinion": "excellent", "Sentiment": "POS"}, {"Aspect": "coffee", "Opinion": "good", "Sentiment": "POS"}]}
+```
+
+### No Triplets Found:
+```json
+{"ID": "sentence_1_13", "Text": "They are served on Focacchia bread", "Quadruplet": [{"Aspect": "NULL", "Opinion": "NULL", "Sentiment": "NULL"}]}
 ```
 
 ---
 
 ## What You'll See
 
-### 1. Sentence Text
-- The original input sentence (cleaned)
+### JSON Format Output
 
-### 2. Predicted Entities
-- Token span positions [start:end]
-- Entity text extracted from tokens
-- Entity type (ASPECT/OPINION)
-- Confidence score
+Each sentence is printed as a single-line JSON object with:
 
-### 3. Predicted Triplets
-- Aspect entity (text, position, type)
-- Opinion entity (text, position, type)
-- Sentiment polarity (POS/NEG/NEU)
-- Confidence score
+1. **ID**: Unique identifier (format: `sentence_{epoch}_{index}`)
+2. **Text**: The original sentence (cleaned)
+3. **Quadruplet**: Array of triplets, each containing:
+   - **Aspect**: Aspect term text (or "NULL" if none)
+   - **Opinion**: Opinion term text (or "NULL" if none)
+   - **Sentiment**: Sentiment polarity (POS/NEG/NEU or "NULL")
+
+### Field Descriptions:
+
+- **Aspect**: The target entity being discussed (e.g., "food", "service")
+- **Opinion**: The opinion expression about the aspect (e.g., "delicious", "slow")
+- **Sentiment**: The polarity of the opinion (POS=positive, NEG=negative, NEU=neutral)
 
 ---
 
@@ -90,31 +90,29 @@ PREDICTED TRIPLETS (1):
 
 ## Example Output Interpretation
 
-```
-SENTENCE 0:
-Text: the food was delicious but service was slow
-
-PREDICTED ENTITIES (4):
-  1. [1:2] 'food' -> ASPECT (score: 0.95)
-  2. [3:4] 'delicious' -> OPINION (score: 0.92)
-  3. [5:6] 'service' -> ASPECT (score: 0.94)
-  4. [7:8] 'slow' -> OPINION (score: 0.88)
-
-PREDICTED TRIPLETS (2):
-  1. Aspect: 'food' [1:2] (ASPECT)
-     Opinion: 'delicious' [3:4] (OPINION)
-     Sentiment: POS (score: 0.91)
-  
-  2. Aspect: 'service' [5:6] (ASPECT)
-     Opinion: 'slow' [7:8] (OPINION)
-     Sentiment: NEG (score: 0.85)
+### Example 1: Multiple Triplets
+```json
+{"ID": "sentence_1_0", "Text": "the food was delicious but service was slow", "Quadruplet": [{"Aspect": "food", "Opinion": "delicious", "Sentiment": "POS"}, {"Aspect": "service", "Opinion": "slow", "Sentiment": "NEG"}]}
 ```
 
 **Interpretation:**
-- Model correctly identified 2 aspects: "food" and "service"
-- Model correctly identified 2 opinions: "delicious" and "slow"
-- Model correctly paired them into 2 triplets
-- Model correctly classified sentiments: POS for food, NEG for service
+- Sentence has 2 triplets
+- Triplet 1: "food" (aspect) + "delicious" (opinion) = POS sentiment
+- Triplet 2: "service" (aspect) + "slow" (opinion) = NEG sentiment
+
+### Example 2: Single Triplet
+```json
+{"ID": "sentence_1_1", "Text": "the pizza was amazing", "Quadruplet": [{"Aspect": "pizza", "Opinion": "amazing", "Sentiment": "POS"}]}
+```
+
+### Example 3: No Triplets
+```json
+{"ID": "sentence_1_2", "Text": "we went there yesterday", "Quadruplet": [{"Aspect": "NULL", "Opinion": "NULL", "Sentiment": "NULL"}]}
+```
+
+**Interpretation:**
+- No aspect-opinion pairs found
+- NULL values indicate no triplet extraction
 
 ---
 
@@ -151,8 +149,15 @@ PREDICTED TRIPLETS (2):
 
 ### 2. Save to File
 ```bash
-python train.py --print_triplets ... > output.txt 2>&1
+python train.py --print_triplets ... > triplets.jsonl 2>&1
 ```
+
+Then extract only JSON lines:
+```bash
+grep '^{' triplets.jsonl > clean_triplets.jsonl
+```
+
+Each line is a valid JSON object that can be parsed.
 
 ### 3. Filter Specific Sentences
 Modify the code to only print specific sentence indices:

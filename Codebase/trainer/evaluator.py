@@ -532,39 +532,45 @@ class Evaluator:
         return html
 
     def _print_triplet_extraction(self, sample_idx, batch, pred_entities, pred_sentiments):
-        """Print how a sentence is classified into triplets"""
+        """Print how a sentence is classified into triplets in JSON format"""
         # Get the sentence text
         encoding = batch['encodings'][sample_idx].cpu().tolist()
-        tokens = self._text_encoder.convert_ids_to_tokens(encoding)
         text = self._text_encoder.decode(encoding)
         text = self._prettify(text)
         
-        print("\n" + "="*80)
-        print(f"SENTENCE {sample_idx}:")
-        print(f"Text: {text}")
-        print("-"*80)
+        # Build quadruplet list
+        quadruplets = []
         
-        # Print predicted entities
-        print(f"PREDICTED ENTITIES ({len(pred_entities)}):")
-        for idx, entity in enumerate(pred_entities):
-            start, end, entity_type, score = entity
-            entity_text = self._text_encoder.decode(encoding[start:end])
-            entity_text = self._prettify(entity_text)
-            print(f"  {idx+1}. [{start}:{end}] '{entity_text}' -> {entity_type.short_name} (score: {score:.3f})")
+        if len(pred_sentiments) == 0:
+            # No triplets found - add NULL entry
+            quadruplets.append({
+                "Aspect": "NULL",
+                "Opinion": "NULL",
+                "Sentiment": "NULL"
+            })
+        else:
+            # Process each triplet
+            for triplet in pred_sentiments:
+                head, tail, sentiment_type = triplet[:3]
+                
+                # Extract aspect and opinion text
+                aspect_text = self._text_encoder.decode(encoding[head[0]:head[1]])
+                opinion_text = self._text_encoder.decode(encoding[tail[0]:tail[1]])
+                aspect_text = self._prettify(aspect_text)
+                opinion_text = self._prettify(opinion_text)
+                
+                quadruplets.append({
+                    "Aspect": aspect_text,
+                    "Opinion": opinion_text,
+                    "Sentiment": sentiment_type.short_name
+                })
         
-        # Print predicted triplets
-        print(f"\nPREDICTED TRIPLETS ({len(pred_sentiments)}):")
-        for idx, triplet in enumerate(pred_sentiments):
-            head, tail, sentiment_type = triplet[:3]
-            score = triplet[3] if len(triplet) > 3 else 0.0
-            
-            head_text = self._text_encoder.decode(encoding[head[0]:head[1]])
-            tail_text = self._text_encoder.decode(encoding[tail[0]:tail[1]])
-            head_text = self._prettify(head_text)
-            tail_text = self._prettify(tail_text)
-            
-            print(f"  {idx+1}. Aspect: '{head_text}' [{head[0]}:{head[1]}] ({head[2].short_name})")
-            print(f"     Opinion: '{tail_text}' [{tail[0]}:{tail[1]}] ({tail[2].short_name})")
-            print(f"     Sentiment: {sentiment_type.short_name} (score: {score:.3f})")
+        # Create JSON output
+        output = {
+            "ID": f"sentence_{self._epoch}_{sample_idx}",
+            "Text": text,
+            "Quadruplet": quadruplets
+        }
         
-        print("="*80 + "\n")
+        # Print as single-line JSON
+        print(json.dumps(output, ensure_ascii=False))
