@@ -78,6 +78,12 @@ def train_argparser():
         default=8,
         help="Number of attention heads for cross-attention fusion (default: 8)"
     )
+    parser.add_argument(
+        "--print_triplets",
+        action="store_true",
+        default=False,
+        help="Print triplet extraction details during evaluation"
+    )
     parser.add_argument("--is_bidirect", default=True, help="Do use bi-RNN layer.")
     parser.add_argument(
         "--use_gated", default=False, help="Do use gcnconv and gatedgraphconv."

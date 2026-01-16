@@ -13,7 +13,8 @@ SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 class Evaluator:
     def __init__(self, dataset: Dataset, input_reader: JsonInputReader, text_encoder: BertTokenizer,
                  sen_filter_threshold: float,
-                 predictions_path: str, examples_path: str, example_count: int, epoch: int, dataset_label: str):
+                 predictions_path: str, examples_path: str, example_count: int, epoch: int, dataset_label: str,
+                 print_triplets: bool = False):
         self._text_encoder = text_encoder
         self._input_reader = input_reader
         self._dataset = dataset
@@ -26,6 +27,8 @@ class Evaluator:
 
         self._examples_path = examples_path
         self._example_count = example_count
+        
+        self._print_triplets = print_triplets
 
         # sentiments
         self._gt_sentiments = []  # ground truth
@@ -92,6 +95,9 @@ class Evaluator:
             sample_pred_entities = self._convert_pred_entities(valid_entity_types, valid_entity_spans,
                                                                valid_entity_scores)
 
+            # PRINT TRIPLET EXTRACTION DETAILS
+            if self._print_triplets:
+                self._print_triplet_extraction(i, batch, sample_pred_entities, sample_pred_sentiments)
 
             self._pred_entities.append(sample_pred_entities)
             self._pred_sentiments.append(sample_pred_sentiments)
@@ -524,3 +530,41 @@ class Evaluator:
         html = self._prettify(html)
 
         return html
+
+    def _print_triplet_extraction(self, sample_idx, batch, pred_entities, pred_sentiments):
+        """Print how a sentence is classified into triplets"""
+        # Get the sentence text
+        encoding = batch['encodings'][sample_idx].cpu().tolist()
+        tokens = self._text_encoder.convert_ids_to_tokens(encoding)
+        text = self._text_encoder.decode(encoding)
+        text = self._prettify(text)
+        
+        print("\n" + "="*80)
+        print(f"SENTENCE {sample_idx}:")
+        print(f"Text: {text}")
+        print("-"*80)
+        
+        # Print predicted entities
+        print(f"PREDICTED ENTITIES ({len(pred_entities)}):")
+        for idx, entity in enumerate(pred_entities):
+            start, end, entity_type, score = entity
+            entity_text = self._text_encoder.decode(encoding[start:end])
+            entity_text = self._prettify(entity_text)
+            print(f"  {idx+1}. [{start}:{end}] '{entity_text}' -> {entity_type.short_name} (score: {score:.3f})")
+        
+        # Print predicted triplets
+        print(f"\nPREDICTED TRIPLETS ({len(pred_sentiments)}):")
+        for idx, triplet in enumerate(pred_sentiments):
+            head, tail, sentiment_type = triplet[:3]
+            score = triplet[3] if len(triplet) > 3 else 0.0
+            
+            head_text = self._text_encoder.decode(encoding[head[0]:head[1]])
+            tail_text = self._text_encoder.decode(encoding[tail[0]:tail[1]])
+            head_text = self._prettify(head_text)
+            tail_text = self._prettify(tail_text)
+            
+            print(f"  {idx+1}. Aspect: '{head_text}' [{head[0]}:{head[1]}] ({head[2].short_name})")
+            print(f"     Opinion: '{tail_text}' [{tail[0]}:{tail[1]}] ({tail[2].short_name})")
+            print(f"     Sentiment: {sentiment_type.short_name} (score: {score:.3f})")
+        
+        print("="*80 + "\n")

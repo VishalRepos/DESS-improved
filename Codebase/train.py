@@ -253,6 +253,7 @@ class D2E2S_Trainer(BaseTrainer):
             self.args.example_count,
             epoch,
             dataset.label,
+            print_triplets=getattr(self.args, 'print_triplets', False)
         )
         # create data loader
         dataset.switch_mode(Dataset.EVAL_MODE)
