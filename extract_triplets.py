@@ -46,13 +46,13 @@ def extract_triplets(input_file, output_file):
 
 if __name__ == "__main__":
     # Define paths
-    input_file = "OutputLogs/output.txt"
-    output_file = "OutputTriplets/triplets.jsonl"
+    input_file = "Results/OutputLogs/output.txt"
+    output_file = "Results/OutputTriplets/triplets.jsonl"
     
     # Check if input file exists
     if not os.path.exists(input_file):
         print(f"❌ Error: Input file not found: {input_file}")
-        print(f"Please ensure the file exists in the OutputLogs folder.")
+        print(f"Please ensure the file exists in the Results/OutputLogs folder.")
         exit(1)
     
     print(f"📖 Reading from: {input_file}")
