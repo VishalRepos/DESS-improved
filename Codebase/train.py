@@ -294,6 +294,10 @@ class D2E2S_Trainer(BaseTrainer):
             ner_eval, senti_eval, senti_nec_eval = evaluator.compute_scores()
             # print(self.result_path)
             self._log_filter_file(ner_eval, senti_eval, evaluator, epoch)
+            
+            # Print current and best F1 score
+            current_f1 = float(senti_eval[2])
+            print(f"Epoch {epoch} | Current F1: {current_f1:.2f}% | Best F1: {self.max_pair_f1:.2f}%")
         self._log_eval(
             *ner_eval,
             *senti_eval,
