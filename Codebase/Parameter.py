@@ -220,6 +220,55 @@ def train_argparser():
         default=0.2,
         help="Proportion of total train iterations to warmup in linear increase/decrease schedule",
     )
+    # --- Phase 1: Training improvements ---
+    parser.add_argument(
+        "--use_differential_lr",
+        action="store_true",
+        default=False,
+        help="Use different learning rates for transformer vs task-specific layers"
+    )
+    parser.add_argument(
+        "--transformer_lr",
+        type=float,
+        default=1e-5,
+        help="Learning rate for DeBERTa transformer layers (default: 1e-5)"
+    )
+    parser.add_argument(
+        "--task_lr",
+        type=float,
+        default=3e-4,
+        help="Learning rate for GCN/TIN/classifier layers (default: 3e-4)"
+    )
+    parser.add_argument(
+        "--batch_loss_weight",
+        type=float,
+        default=10.0,
+        help="Weight for adjacency consistency batch loss (default: 10.0, try 1.0-2.0)"
+    )
+    parser.add_argument(
+        "--use_focal_loss",
+        action="store_true",
+        default=False,
+        help="Use focal loss for sentiment classification instead of BCE"
+    )
+    parser.add_argument(
+        "--focal_gamma",
+        type=float,
+        default=2.0,
+        help="Gamma parameter for focal loss (default: 2.0)"
+    )
+    parser.add_argument(
+        "--focal_alpha",
+        type=float,
+        default=0.25,
+        help="Alpha parameter for focal loss (default: 0.25)"
+    )
+    parser.add_argument(
+        "--use_cosine_schedule",
+        action="store_true",
+        default=False,
+        help="Use cosine annealing LR schedule instead of linear decay"
+    )
     parser.add_argument(
         "--log_path",
         type=str,

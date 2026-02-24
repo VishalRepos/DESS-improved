@@ -4,6 +4,52 @@ This document tracks all improvements and changes made to the DESS (D2E2S) model
 
 ---
 
+## [Pending] - 2026-02-24
+### Phase 1: Training Dynamics Improvements
+
+**Motivation**: Analysis showed the 77.14% → 80% gap is primarily in training dynamics, not architecture. The hardcoded `10*batch_loss` weight, single LR for all parameters, standard BCE loss with heavy negative sampling, and linear LR decay are all suboptimal.
+
+**Changes**:
+
+1. **Differential Learning Rates** (`train.py`, `Parameter.py`)
+   - `--use_differential_lr` flag enables separate LR for DeBERTa vs task layers
+   - `--transformer_lr` (default: 1e-5) for pretrained DeBERTa encoder
+   - `--task_lr` (default: 3e-4) for GCN/TIN/classifiers (randomly initialized)
+   - Rationale: pretrained weights need gentle fine-tuning; random heads need faster learning
+
+2. **Configurable Batch Loss Weight** (`trainer/loss.py`, `Parameter.py`)
+   - `--batch_loss_weight` (default: 10.0 for backward compat, recommended: 1.0-2.0)
+   - Previously hardcoded as `10*batch_loss` — too aggressive, may dominate entity/sentiment losses
+   - Now passed as constructor arg to `D2E2SLoss`
+
+3. **Focal Loss for Sentiment** (`trainer/loss.py`, `train.py`, `Parameter.py`)
+   - `--use_focal_loss` enables `FocalBCEWithLogitsLoss` instead of standard BCE
+   - `--focal_gamma` (default: 2.0) — down-weights easy negatives
+   - `--focal_alpha` (default: 0.25) — class balance factor
+   - Addresses heavy negative sampling imbalance in sentiment classification
+
+4. **Cosine Annealing LR Schedule** (`train.py`, `Parameter.py`)
+   - `--use_cosine_schedule` replaces linear decay with cosine annealing + warmup
+   - Better for fine-tuning: maintains higher LR longer, smoother decay
+
+**All changes are backward-compatible** — default behavior is identical to before. New features are opt-in via flags.
+
+**Recommended training command**:
+```bash
+python train.py --dataset 14res --epochs 120 \
+    --pretrained_deberta_name microsoft/deberta-v3-base \
+    --deberta_feature_dim 768 --hidden_dim 384 --emb_dim 768 \
+    --use_enhanced_semgcn \
+    --use_differential_lr --transformer_lr 1e-5 --task_lr 3e-4 \
+    --batch_loss_weight 2.0 \
+    --use_focal_loss --focal_gamma 2.0 \
+    --use_cosine_schedule
+```
+
+**Expected Impact**: +1.0-1.5% Triplet F1 (target: 78.1-78.6%)
+
+---
+
 ## [Pending] - 2026-01-15 11:10:00 +0530
 ### Enhancement: Cross-Attention Fusion (Replace TIN Concatenation)
 

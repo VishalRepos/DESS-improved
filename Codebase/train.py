@@ -19,7 +19,7 @@ from trainer.baseTrainer import BaseTrainer
 from trainer.entities import Dataset
 from trainer.evaluator import Evaluator
 from trainer.input_reader import JsonInputReader
-from trainer.loss import D2E2SLoss
+from trainer.loss import D2E2SLoss, FocalBCEWithLogitsLoss
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -103,15 +103,32 @@ class D2E2S_Trainer(BaseTrainer):
             weight_decay=args.weight_decay,
         )
         # create scheduler
-        scheduler = transformers.get_linear_schedule_with_warmup(
-            optimizer,
-            num_warmup_steps=args.lr_warmup * updates_total,
-            num_training_steps=updates_total,
-        )
+        warmup_steps = int(args.lr_warmup * updates_total)
+        if args.use_cosine_schedule:
+            scheduler = transformers.get_cosine_schedule_with_warmup(
+                optimizer,
+                num_warmup_steps=warmup_steps,
+                num_training_steps=updates_total,
+            )
+            print(f"Using cosine annealing LR schedule (warmup={warmup_steps} steps)")
+        else:
+            scheduler = transformers.get_linear_schedule_with_warmup(
+                optimizer,
+                num_warmup_steps=warmup_steps,
+                num_training_steps=updates_total,
+            )
 
         # create loss function
         entity_criterion = torch.nn.CrossEntropyLoss(reduction="none")
-        senti_criterion = torch.nn.BCEWithLogitsLoss(reduction="none")
+        if args.use_focal_loss:
+            senti_criterion = FocalBCEWithLogitsLoss(
+                gamma=args.focal_gamma,
+                alpha=args.focal_alpha,
+                reduction="none"
+            )
+            print(f"Using Focal Loss for sentiment (gamma={args.focal_gamma}, alpha={args.focal_alpha})")
+        else:
+            senti_criterion = torch.nn.BCEWithLogitsLoss(reduction="none")
         compute_loss = D2E2SLoss(
             senti_criterion,
             entity_criterion,
@@ -119,7 +136,10 @@ class D2E2S_Trainer(BaseTrainer):
             optimizer,
             scheduler,
             args.max_grad_norm,
+            batch_loss_weight=args.batch_loss_weight,
         )
+        if args.batch_loss_weight != 10.0:
+            print(f"Batch loss weight: {args.batch_loss_weight} (default: 10.0)")
         # eval validation set
         if args.init_eval:
             self._eval(model, test_dataset, input_reader, 0, updates_epoch)
@@ -364,20 +384,49 @@ class D2E2S_Trainer(BaseTrainer):
     def _get_optimizer_params(self, model):
         param_optimizer = list(model.named_parameters())
         no_decay = ["bias", "LayerNorm.bias", "LayerNorm.weight"]
-        optimizer_params = [
-            {
-                "params": [
-                    p for n, p in param_optimizer if not any(nd in n for nd in no_decay)
-                ],
-                "weight_decay": self.args.weight_decay,
-            },
-            {
-                "params": [
-                    p for n, p in param_optimizer if any(nd in n for nd in no_decay)
-                ],
-                "weight_decay": 0.0,
-            },
-        ]
+
+        if self.args.use_differential_lr:
+            # Separate transformer (DeBERTa) params from task-specific params
+            transformer_params_decay = []
+            transformer_params_no_decay = []
+            task_params_decay = []
+            task_params_no_decay = []
+
+            for n, p in param_optimizer:
+                is_transformer = n.startswith("deberta.")
+                is_no_decay = any(nd in n for nd in no_decay)
+
+                if is_transformer and not is_no_decay:
+                    transformer_params_decay.append(p)
+                elif is_transformer and is_no_decay:
+                    transformer_params_no_decay.append(p)
+                elif not is_transformer and not is_no_decay:
+                    task_params_decay.append(p)
+                else:
+                    task_params_no_decay.append(p)
+
+            optimizer_params = [
+                {"params": transformer_params_decay, "lr": self.args.transformer_lr, "weight_decay": self.args.weight_decay},
+                {"params": transformer_params_no_decay, "lr": self.args.transformer_lr, "weight_decay": 0.0},
+                {"params": task_params_decay, "lr": self.args.task_lr, "weight_decay": self.args.weight_decay},
+                {"params": task_params_no_decay, "lr": self.args.task_lr, "weight_decay": 0.0},
+            ]
+            print(f"Differential LR: transformer={self.args.transformer_lr}, task={self.args.task_lr}")
+        else:
+            optimizer_params = [
+                {
+                    "params": [
+                        p for n, p in param_optimizer if not any(nd in n for nd in no_decay)
+                    ],
+                    "weight_decay": self.args.weight_decay,
+                },
+                {
+                    "params": [
+                        p for n, p in param_optimizer if any(nd in n for nd in no_decay)
+                    ],
+                    "weight_decay": 0.0,
+                },
+            ]
 
         return optimizer_params
 
